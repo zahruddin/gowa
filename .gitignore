@@ -1,0 +1,25 @@
+# --- Database & Sesi ---
+# File ini berisi histori chat dan kunci login WA
+examplestore.db*
+# File ini berisi data katalog jualan Anda
+gowa_katalog.db*
+
+# --- File Upload & Media ---
+# Kita mengabaikan isi folder uploads (seperti qris.png)
+# tapi tetap membiarkan folder itu sendiri ada jika Anda mau
+uploads/
+
+# --- Konfigurasi Lokal ---
+# File template yang mungkin Anda edit-edit di lokal
+template_list.txt
+
+# --- System & Executables ---
+# File aplikasi hasil compile (jika ada)
+gowa
+main
+*.exe
+*.out
+
+# --- OS Files ---
+.DS_Store
+Thumbs.db
