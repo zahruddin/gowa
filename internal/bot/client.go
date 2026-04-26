@@ -17,7 +17,12 @@ func (m *Manager) InitClient(id string) error {
 
 	if client.Store.ID == nil {
 		// New device — need QR pairing
-		qrChan, _ := client.GetQRChannel(context.Background())
+		ctx, cancel := context.WithCancel(context.Background())
+		m.mu.Lock()
+		m.CancelFuncs[id] = cancel
+		m.mu.Unlock()
+
+		qrChan, _ := client.GetQRChannel(ctx)
 		err = client.Connect()
 		if err != nil {
 			return err

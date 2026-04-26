@@ -20,6 +20,7 @@ type Manager struct {
 	Clients        map[string]*whatsmeow.Client
 	StoreContainer *sqlstore.Container
 	QRChannels     map[string]string // sessionID -> latest QR code string
+	CancelFuncs    map[string]context.CancelFunc
 	mu             sync.RWMutex
 }
 
@@ -33,6 +34,7 @@ func NewManager(dbPath string) (*Manager, error) {
 		Clients:        make(map[string]*whatsmeow.Client),
 		StoreContainer: container,
 		QRChannels:     make(map[string]string),
+		CancelFuncs:    make(map[string]context.CancelFunc),
 	}, nil
 }
 
@@ -212,8 +214,27 @@ func (m *Manager) Logout(id string) error {
 	if !ok {
 		return fmt.Errorf("session %s not found", id)
 	}
-	err := client.Logout(context.Background())
+
+	var err error
+	// Only send logout to WA servers if we are actually paired
+	if client.Store.ID != nil {
+		err = client.Logout(context.Background())
+	}
+	
 	client.Disconnect()
+	
+	// Delete device from the local SQLite store so it doesn't linger
+	if client.Store != nil {
+		client.Store.Delete(context.Background())
+	}
+
+	// Cancel any pending context (like QR channel)
+	if cancel, exists := m.CancelFuncs[id]; exists {
+		cancel()
+		delete(m.CancelFuncs, id)
+		// fmt.Printf("[%s] Session creation cancelled (QR modal closed)\n", id)
+	}
+
 	delete(m.Clients, id)
 	delete(m.QRChannels, id)
 	return err

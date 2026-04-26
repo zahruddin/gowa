@@ -26,7 +26,23 @@ function openModal(title, bodyHTML) {
   m.classList.remove('hidden');
   m.classList.add('flex');
 }
+let currentCreatingSessionId = null;
+
 function closeModal() {
+  if (currentCreatingSessionId) {
+    const id = currentCreatingSessionId;
+    currentCreatingSessionId = null;
+    if (qrPollers[id]) {
+      clearInterval(qrPollers[id]);
+      delete qrPollers[id];
+    }
+    fetch(API+'/api/sessions/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).then(() => loadSessions());
+  }
+
   const m = document.getElementById('modal');
   m.classList.add('hidden');
   m.classList.remove('flex');
@@ -136,6 +152,7 @@ async function createSession() {
   document.getElementById('create-btns').classList.add('hidden');
   document.getElementById('new-session-id').classList.add('hidden');
   document.getElementById('qr-area').classList.remove('hidden');
+  currentCreatingSessionId = id;
   pollQR(id);
 }
 
@@ -174,6 +191,9 @@ function pollQR(sessionID) {
       } else if(!data.has_qr && lastQR !== '') {
         clearInterval(qrPollers[sessionID]);
         delete qrPollers[sessionID];
+        if (currentCreatingSessionId === sessionID) {
+          currentCreatingSessionId = null; // Scan successful
+        }
         closeModal();
         loadSessions();
       }
