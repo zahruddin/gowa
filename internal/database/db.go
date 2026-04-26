@@ -78,6 +78,23 @@ func createTables() {
 			key TEXT PRIMARY KEY,
 			value TEXT
 		);`,
+
+		`CREATE TABLE IF NOT EXISTS payment_settings (
+            session_id TEXT PRIMARY KEY,
+            qris_data TEXT,   -- Menyimpan path file gambar atau ID media
+            caption TEXT,     -- Pesan teks pendamping QRIS
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+        );`,
+
+		`CREATE TABLE IF NOT EXISTS admin_status (
+			session_id TEXT,
+			number TEXT,
+			status TEXT, -- 'ready' atau 'afk'
+			reason TEXT,
+			since DATETIME,
+			PRIMARY KEY (session_id, number)
+		);`,
 	}
 
 	for _, query := range queries {
