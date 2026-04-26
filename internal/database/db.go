@@ -68,6 +68,18 @@ func createTables() {
 			FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
 		);`,
 
+		`ALTER TABLE bulk_jobs ADD COLUMN min_delay INTEGER DEFAULT 5;`,
+		`ALTER TABLE bulk_jobs ADD COLUMN max_delay INTEGER DEFAULT 10;`,
+
+		`CREATE TABLE IF NOT EXISTS bulk_items (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			job_id INTEGER,
+			target TEXT,
+			message TEXT,
+			status TEXT DEFAULT 'pending',
+			FOREIGN KEY (job_id) REFERENCES bulk_jobs(id) ON DELETE CASCADE
+		);`,
+
 		`CREATE TABLE IF NOT EXISTS users (
 			id INTEGER PRIMARY KEY AUTOINCREMENT,
 			username TEXT UNIQUE,

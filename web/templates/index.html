@@ -6,6 +6,7 @@
     <title>GOWA - Enterprise WhatsApp Gateway</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="/static/css/style.css">
@@ -33,6 +34,7 @@
             <button onclick="switchTab('whitelist')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="whitelist">🛡️ Whitelist</button>
             <button onclick="switchTab('bulk')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="bulk">📤 Bulk Sender</button>
             <button onclick="switchTab('api')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="api">🔌 API Docs</button>
+            <button onclick="switchTab('monitor')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="monitor">📊 System Monitor</button>
         </div>
 
         <div id="tab-sessions">
@@ -83,8 +85,88 @@
           <div id="whitelist-list" class="space-y-2"></div>
         </div>
 
-        <div id="tab-bulk" class="hidden"> ... </div>
-
+        <div id="tab-bulk" class="hidden">
+            <h2 class="text-lg font-semibold mb-4">Bulk Sender</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Configuration Form -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col h-full">
+                    <h3 class="text-md font-bold mb-4 text-blue-400">1. Configuration</h3>
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-500 mb-1">Session</label>
+                        <select id="bulk-session-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-white">
+                            <option value="">-- Select Session --</option>
+                        </select>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Min Delay (sec)</label>
+                            <input type="number" id="bulk-min-delay" value="3" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1">Max Delay (sec)</label>
+                            <input type="number" id="bulk-max-delay" value="8" min="1" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300">
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Message Template</label>
+                        <textarea id="bulk-message" rows="5" placeholder="Halo {nama}, tagihan Anda: [tagihan]..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500 text-white mb-2"></textarea>
+                        
+                        <div class="bg-blue-900/20 p-3 rounded-lg border border-blue-800/30">
+                            <span class="text-[10px] text-blue-400 font-bold uppercase mb-1 flex items-center gap-1">👁️ Live Preview (Row 1)</span>
+                            <p id="bulk-preview" class="text-sm text-slate-400 italic whitespace-pre-wrap">Upload data untuk melihat preview...</p>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-xs text-slate-500 mb-1">Upload Data (Excel / CSV)</label>
+                        <input type="file" id="bulk-file" accept=".csv, .xlsx" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-300" onchange="previewBulkCSV(event)">
+                    </div>
+                </div>
+                
+                <!-- Live Monitor -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col h-full">
+                    <h3 class="text-md font-bold mb-4 text-emerald-400">2. Preview & Live Monitoring</h3>
+                    <div class="flex-1 overflow-y-auto bg-slate-950 border border-slate-700 rounded-lg mb-4 shadow-inner" style="max-height: 400px;">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead class="sticky top-0 bg-slate-800 text-slate-400 shadow-sm">
+                                <tr>
+                                    <th class="px-3 py-2">Target</th>
+                                    <th class="px-3 py-2">Log / Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-preview-list">
+                                <tr><td colspan="2" class="px-3 py-20 text-center text-slate-500">No data found.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="verifyBulkNumbers()" id="btn-verify-bulk" class="flex-1 bg-purple-600 hover:bg-purple-700 px-4 py-3 rounded-lg text-sm font-bold text-white transition-all shadow-lg opacity-50 cursor-not-allowed" disabled>Verify Numbers</button>
+                        <button onclick="startBulkCampaign()" id="btn-start-bulk" class="flex-1 bg-blue-600 hover:bg-blue-700 px-4 py-3 rounded-lg text-sm font-bold text-white transition-all shadow-lg opacity-50 cursor-not-allowed" disabled>Start Campaign</button>
+                    </div>
+                </div>
+                
+                <!-- Recent History -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 lg:col-span-2 shadow-2xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-md font-bold">Recent Campaigns</h3>
+                        <button onclick="loadBulkJobs()" class="text-xs text-blue-400 hover:underline flex items-center gap-1">↻ Refresh History</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm text-slate-300">
+                            <thead class="text-xs text-slate-500 bg-slate-950">
+                                <tr>
+                                    <th class="px-3 py-3">ID</th>
+                                    <th class="px-3 py-3">Session</th>
+                                    <th class="px-3 py-3">Progress</th>
+                                    <th class="px-3 py-3 text-right">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bulk-jobs-list"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
         <div id="tab-api" class="hidden">
             <h2 class="text-lg font-semibold mb-4">API Documentation</h2>
             <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-6">
@@ -135,8 +217,71 @@
             </div>
         </div>
 
+        <div id="tab-monitor" class="hidden">
+            <h2 class="text-lg font-semibold mb-4">System Monitor <span id="monitor-status" class="text-xs ml-2 text-emerald-400">● Live</span></h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- System Overall -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                    <h3 class="text-sm font-bold mb-4 text-slate-400 uppercase tracking-wider">Overall Server</h3>
+                    
+                    <div class="mb-5">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>CPU Usage</span>
+                            <span id="sys-cpu-text" class="font-mono text-emerald-400">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-950 rounded-full h-2">
+                            <div id="sys-cpu-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>RAM Usage</span>
+                            <span id="sys-ram-text" class="font-mono text-blue-400">0 / 0 MB</span>
+                        </div>
+                        <div class="w-full bg-slate-950 rounded-full h-2">
+                            <div id="sys-ram-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- App Specific -->
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                    <h3 class="text-sm font-bold mb-4 text-slate-400 uppercase tracking-wider">GOWA App</h3>
+                    
+                    <div class="mb-5">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>App CPU Usage</span>
+                            <span id="app-cpu-text" class="font-mono text-emerald-400">0%</span>
+                        </div>
+                        <div class="w-full bg-slate-950 rounded-full h-2">
+                            <div id="app-cpu-bar" class="bg-emerald-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-5">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>App RAM Allocation</span>
+                            <span id="app-ram-text" class="font-mono text-purple-400">0 MB</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Active Goroutines</span>
+                            <span id="app-routines-text" class="font-mono text-amber-400">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <p class="text-xs text-slate-500 text-center">Data is refreshed in real-time only while this tab is active.</p>
+        </div>
+
     </div>
 
     <script src="/static/js/main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </body>
 </html>

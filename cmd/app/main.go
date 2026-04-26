@@ -11,6 +11,7 @@ import (
 	"gowa/internal/api"
 	"gowa/internal/bot"
 	"gowa/internal/database"
+	"gowa/internal/service"
 )
 
 func main() {
@@ -27,8 +28,8 @@ func main() {
 	}
 
 	// 3. Initialize Services
-	// bulkService := service.NewBulkService(botManager)
-	// bulkService.StartWorker()
+	bulkService := service.NewBulkService(botManager)
+	bulkService.StartWorker()
 
 	// 4. Load existing sessions from DB and start them
 	rows, err := db.Query("SELECT id FROM sessions WHERE status != 'deleted'")
@@ -43,7 +44,7 @@ func main() {
 
 	// 5. Initialize API Handlers
 	apiHandler := api.NewAPIHandler(botManager)
-	// bulkHandler := api.NewBulkHandler(bulkService)
+	bulkHandler := api.NewBulkHandler(bulkService)
 
 	// 6. Setup Routes
 	mux := http.NewServeMux()
@@ -70,11 +71,16 @@ func main() {
 	mux.HandleFunc("/api/whitelist/delete", apiHandler.DeleteWhitelist)
 
 	// --- Bulk Sender ---
-	// mux.HandleFunc("/api/bulk/upload", bulkHandler.UploadBulk)
-	// mux.HandleFunc("/api/bulk/jobs", bulkHandler.ListJobs)
+	mux.HandleFunc("/api/bulk/start", bulkHandler.StartCampaign)
+	mux.HandleFunc("/api/bulk/jobs", bulkHandler.ListJobs)
+	mux.HandleFunc("/api/bulk/verify", bulkHandler.VerifyNumbers)
+	mux.HandleFunc("/api/bulk/job-details", bulkHandler.GetJobDetails)
 
 	// --- External API (Token Auth) ---
 	mux.HandleFunc("/api/send-text", apiHandler.AuthMiddleware(apiHandler.SendChatMessage))
+
+	// --- Monitoring ---
+	mux.HandleFunc("/api/system/stats", apiHandler.GetSystemStats)
 
 	// --- Web Dashboard ---
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {

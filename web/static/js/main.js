@@ -16,6 +16,12 @@ function switchTab(tab) {
   if(tab==='katalog') loadKatalog();
   if(tab==='whitelist') loadWhitelist();
   if(tab==='bulk') loadBulkJobs();
+  
+  if(tab==='monitor') {
+    startMonitor();
+  } else {
+    stopMonitor();
+  }
 }
 
 // --- MODAL ---
@@ -461,78 +467,54 @@ async function deleteWhitelist(number) {
   loadWhitelist();
 }
 
-// --- BULK SENDER ---
-async function loadBulkJobs() {
-  const bulkSelect = document.getElementById('bulk-session-select');
-  if (!bulkSelect) return;
-  const sessionID = bulkSelect.value;
-  let url = API+'/api/bulk/jobs';
-  if(sessionID) url += '?session_id='+encodeURIComponent(sessionID);
-  
-  const res = await fetch(url);
-  const data = await res.json();
-  const el = document.getElementById('bulk-jobs-list');
-  
-  if(!data || data.length === 0) {
-    el.innerHTML = '<tr><td colspan="5" class="py-12 text-center text-slate-500 italic">No broadcast history yet.</td></tr>';
-    return;
-  }
+// --- SYSTEM MONITOR ---
+let monitorInterval = null;
 
-  el.innerHTML = data.map(j => {
-    const statusClass = j.status === 'completed' ? 'text-emerald-400' : (j.status === 'failed' ? 'text-red-400' : 'text-blue-400');
-    return `
-      <tr class="hover:bg-slate-800/50 transition">
-        <td class="py-4 text-slate-400 font-mono text-xs">#${j.id}</td>
-        <td class="py-4 font-medium">${j.session_id}</td>
-        <td class="py-4">
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-400">${j.success}/${j.total}</span>
-            <div class="flex-1 h-1.5 bg-slate-800 rounded-full w-24 overflow-hidden">
-              <div class="h-full bg-blue-500" style="width: ${(j.success/j.total*100)||0}%"></div>
-            </div>
-          </div>
-        </td>
-        <td class="py-4"><span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 ${statusClass}">${j.status}</span></td>
-        <td class="py-4 text-slate-500 text-xs">${new Date(j.created_at).toLocaleString()}</td>
-      </tr>
-    `;
-  }).join('');
+function startMonitor() {
+    fetchStats(); // Fetch immediately
+    monitorInterval = setInterval(fetchStats, 2000);
+    const statusDot = document.getElementById('monitor-status');
+    if (statusDot) {
+        statusDot.classList.remove('text-slate-500');
+        statusDot.classList.add('text-emerald-400');
+        statusDot.classList.add('animate-pulse');
+    }
 }
 
-async function uploadBulk() {
-  const bulkSelect = document.getElementById('bulk-session-select');
-  if (!bulkSelect) return;
-  const sessionID = bulkSelect.value;
-  const fileInput = document.getElementById('bulk-file');
-  const messageInput = document.getElementById('bulk-message');
-  if (!fileInput || !messageInput) return;
-  
-  const message = messageInput.value;
-
-  if(!sessionID || !fileInput.files[0] || !message) {
-    return alert('Please fill all fields: Session, Excel File, and Message.');
-  }
-
-  const formData = new FormData();
-  formData.append('session_id', sessionID);
-  formData.append('file', fileInput.files[0]);
-  formData.append('message', message);
-
-  try {
-    const res = await fetch(API+'/api/bulk/upload', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await res.json();
-    if(data.status === 'success') {
-      alert('Broadcast job created!');
-      loadBulkJobs();
-    } else {
-      alert('Error: ' + data.error);
+function stopMonitor() {
+    if (monitorInterval) {
+        clearInterval(monitorInterval);
+        monitorInterval = null;
     }
-  } catch(e) {
-    alert('Failed to upload: ' + e.message);
-  }
+    const statusDot = document.getElementById('monitor-status');
+    if (statusDot) {
+        statusDot.classList.remove('text-emerald-400', 'animate-pulse');
+        statusDot.classList.add('text-slate-500');
+    }
+}
+
+async function fetchStats() {
+    try {
+        const res = await fetch(API+'/api/system/stats');
+        const data = await res.json();
+        if (data.error) return;
+
+        // Overall Server
+        document.getElementById('sys-cpu-text').textContent = data.sys_cpu_percent.toFixed(1) + '%';
+        document.getElementById('sys-cpu-bar').style.width = Math.min(100, data.sys_cpu_percent) + '%';
+        
+        document.getElementById('sys-ram-text').textContent = `${data.sys_ram_mb.toFixed(0)} / ${data.total_ram_mb.toFixed(0)} MB`;
+        document.getElementById('sys-ram-bar').style.width = Math.min(100, data.sys_ram_percent) + '%';
+
+        // GOWA App
+        document.getElementById('app-cpu-text').textContent = data.app_cpu_percent.toFixed(1) + '%';
+        document.getElementById('app-cpu-bar').style.width = Math.min(100, data.app_cpu_percent) + '%';
+        
+        document.getElementById('app-ram-text').textContent = data.app_ram_mb.toFixed(2) + ' MB';
+        document.getElementById('app-routines-text').textContent = data.num_goroutine;
+    } catch(e) {
+        // Silently ignore errors to avoid spamming the console
+    }
 }
 
 // --- API TESTER ---
@@ -599,5 +581,265 @@ async function testAPI() {
     }
 }
 
+let bulkPreviewData = [];
+let rawExcelLines = [];
+let bulkJobInterval = null;
+let liveLogInterval = null;
+
+// 1. Parsing & Live Preview
+function previewBulkCSV(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, {type: 'array'});
+        rawExcelLines = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1, defval: ""});
+        
+        updateMessagePreview();
+        
+        document.getElementById('btn-verify-bulk').disabled = false;
+        document.getElementById('btn-verify-bulk').classList.remove('opacity-50', 'cursor-not-allowed');
+        document.getElementById('btn-start-bulk').disabled = false;
+        document.getElementById('btn-start-bulk').classList.remove('opacity-50', 'cursor-not-allowed');
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function updateMessagePreview() {
+    if (rawExcelLines.length < 2) return;
+    const lines = rawExcelLines;
+    const originalHeaders = lines[0].map(h => h ? h.toString().trim() : '');
+    const headers = originalHeaders.map(h => h.toLowerCase());
+    const template = document.getElementById('bulk-message').value;
+    
+    let targetCol = headers.findIndex(h => ['number', 'target', 'phone', 'hp', 'no_hp', 'nomor'].includes(h));
+    if(targetCol === -1) targetCol = 0;
+
+    bulkPreviewData = [];
+    for(let i = 1; i < lines.length; i++) {
+        const row = lines[i];
+        if(!row || !row[targetCol]) continue;
+        
+        let target = row[targetCol].toString().trim().replace(/[^0-9]/g, '');
+        let msg = template;
+        
+        // Replace placeholders [kolom] & {kolom}
+        headers.forEach((h, idx) => {
+            const val = row[idx] ? row[idx].toString().trim() : '';
+            msg = msg.split(`[${h}]`).join(val).split(`{${h}}`).join(val);
+            msg = msg.split(`[${originalHeaders[idx]}]`).join(val).split(`{${originalHeaders[idx]}}`).join(val);
+        });
+
+        // Spintext
+        msg = msg.replace(/\{([^{}]+)\}/g, (m, c) => c.includes('|') ? c.split('|')[Math.floor(Math.random()*c.split('|').length)] : m);
+        
+        if (i === 1) { // Update Real-time Box Preview
+            document.getElementById('bulk-preview').textContent = msg;
+            document.getElementById('bulk-preview').classList.remove('italic', 'text-slate-400');
+            document.getElementById('bulk-preview').classList.add('text-white');
+        }
+
+        bulkPreviewData.push({ target, message: msg, status: 'Unverified' });
+    }
+    renderInitialPreview();
+}
+
+document.getElementById('bulk-message').addEventListener('input', updateMessagePreview);
+
+function renderInitialPreview() {
+    const tbody = document.getElementById('bulk-preview-list');
+    tbody.innerHTML = bulkPreviewData.map(d => `
+        <tr class="border-b border-slate-800/50 hover:bg-slate-800/30 transition">
+            <td class="px-3 py-2 font-mono">${d.target}</td>
+            <td class="px-3 py-2 text-slate-500">${d.status}</td>
+        </tr>
+    `).join('');
+}
+
+// 2. Verification
+async function verifyBulkNumbers() {
+    const sessionID = document.getElementById('bulk-session-select').value;
+    const numbers = bulkPreviewData.map(d => d.target);
+    const btn = document.getElementById('btn-verify-bulk');
+    btn.innerText = 'Verifying...'; btn.disabled = true;
+
+    try {
+        const res = await fetch(API+'/api/bulk/verify', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ session_id: sessionID, numbers })
+        });
+        const result = await res.json();
+        const tbody = document.getElementById('bulk-preview-list');
+        
+        tbody.innerHTML = bulkPreviewData.map(d => {
+            const isValid = result[d.target];
+            d.status = isValid ? 'Valid' : 'Invalid';
+            return `
+                <tr class="border-b border-slate-800/50">
+                    <td class="px-3 py-2 font-mono">${d.target}</td>
+                    <td class="px-3 py-2 font-bold ${isValid ? 'text-emerald-400' : 'text-red-400'}">${d.status}</td>
+                </tr>
+            `;
+        }).join('');
+    } catch(e) { alert(e.message); }
+    btn.innerText = 'Verify Numbers'; btn.disabled = false;
+}
+
+// 3. Start Campaign & Live Tracking
+async function startBulkCampaign() {
+    // 1. Ambil session ID
+    const sessionID = document.getElementById('bulk-session-select').value;
+    if(!sessionID) return alert('Pilih session terlebih dahulu.');
+
+    // 2. Proteksi Double-Click (AMAT PENTING!)
+    const btn = document.getElementById('btn-start-bulk');
+    if (btn.disabled) return; // Mencegah eksekusi jika sudah diproses
+    
+    // 3. Filter ketat: HANYA ambil data yang statusnya 'Valid' atau 'Unverified'
+    // Jangan ambil data yang statusnya 'Invalid'
+    const validItems = bulkPreviewData.filter(d => {
+        // Jika sebelumnya sudah dicek dan hasilnya 'Invalid', buang data ini.
+        return d.status !== 'Invalid'; 
+    });
+
+    // 4. Pastikan data tidak kosong setelah di-filter
+    if(validItems.length === 0) {
+        return alert('Tidak ada target yang valid untuk dikirim. (Semua Invalid)');
+    }
+
+    // 5. Cek apakah pesan masih berisi peringatan "Empty Message"
+    const hasEmptyMessages = validItems.some(item => item.message.includes("[Empty Message"));
+    if (hasEmptyMessages) {
+        return alert("Gagal memulai! Template pesan masih kosong. Silakan ketik pesan di kotak Message Template.");
+    }
+
+    // 6. Matikan tombol dan ubah tulisan agar user tidak klik lagi
+    btn.innerText = 'Starting Campaign...';
+    btn.disabled = true;
+    
+    // Mengubah tampilan cursor dan opacity
+    btn.classList.add('opacity-50', 'cursor-not-allowed');
+
+    // 7. Siapkan payload yang bersih
+    const payloadItems = validItems.map(d => ({ 
+        target: d.target, 
+        message: d.message 
+    }));
+
+    try {
+        const res = await fetch(API+'/api/bulk/start', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                session_id: sessionID,
+                min_delay: parseInt(document.getElementById('bulk-min-delay').value) || 3,
+                max_delay: parseInt(document.getElementById('bulk-max-delay').value) || 8,
+                items: payloadItems
+            })
+        });
+
+        const data = await res.json();
+        
+        // Cek jika HTTP Status bukan 2xx (misal: 500 Internal Server Error)
+        if(!res.ok) {
+            throw new Error(data.message || data.error || `Server Error: ${res.status}`);
+        }
+        
+        if(data.error) throw new Error(data.error);
+
+        alert('Campaign berhasil dimulai! Memantau proses...');
+        
+        // 8. Langsung pindah ke mode Live Monitoring dengan Job ID yang baru didapat
+        trackLiveDetails(data.job_id);
+        loadBulkJobs(); 
+        
+    } catch(e) {
+        console.error("Gagal memulai campaign:", e);
+        alert("Error saat memulai Campaign: " + e.message);
+        
+        // HANYA nyalakan tombol lagi jika gagal.
+        // Jika sukses, biarkan tombol mati agar user tidak klik start lagi di data yang sama.
+        btn.innerText = 'Start Campaign';
+        btn.disabled = false;
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+}
+
+async function trackLiveDetails(jobId) {
+    if (liveLogInterval) clearInterval(liveLogInterval);
+    const tbody = document.getElementById('bulk-preview-list');
+    tbody.innerHTML = `<tr><td colspan="2" class="py-10 text-center text-blue-400 animate-pulse">📡 Initializing Live Monitor #${jobId}...</td></tr>`;
+
+    liveLogInterval = setInterval(async () => {
+        try {
+            const res = await fetch(API+'/api/bulk/job-details?job_id='+jobId);
+            const items = await res.json();
+            
+            if(items && items.length > 0) {
+                tbody.innerHTML = items.map(item => {
+                    let icon = '⏳', color = 'text-slate-500', label = 'Queueing';
+                    if(['success','sent'].includes(item.status)) { icon = '✅'; color = 'text-emerald-400'; label = 'Sent Successfully'; }
+                    else if(item.status === 'failed') { icon = '❌'; color = 'text-red-400'; label = 'Failed'; }
+                    else if(['sending','processing'].includes(item.status)) { icon = '🔄'; color = 'text-blue-400 animate-spin-slow'; label = 'Processing / Delay'; }
+                    
+                    return `<tr class="border-b border-slate-800"><td class="px-3 py-2 font-mono">${item.target}</td><td class="px-3 py-2 font-bold ${color}">${icon} ${label}</td></tr>`;
+                }).join('');
+
+                // CEK JIKA SEMUA SUDAH SELESAI
+                const allDone = items.every(i => ['success','sent','failed'].includes(i.status));
+                if(allDone) {
+                    clearInterval(liveLogInterval); // Matikan putaran
+
+                    // Ubah tombol jadi Selesai
+                    const btn = document.getElementById('btn-start-bulk');
+                    btn.innerText = '✅ Selesai';
+                    btn.classList.remove('bg-blue-600', 'hover:bg-blue-700', 'cursor-not-allowed', 'opacity-50');
+                    btn.classList.add('bg-emerald-600', 'cursor-not-allowed'); // Tetap mati agar tidak di-klik 2x
+                }
+            }
+        } catch(e) {
+            console.error(e);
+        }
+    }, 1500);
+}
+
+// 4. Smooth History Progress
+async function loadBulkJobs() {
+    try {
+        const res = await fetch(API+'/api/bulk/jobs');
+        const data = await res.json();
+        const el = document.getElementById('bulk-jobs-list');
+        
+        el.innerHTML = data.map(j => {
+            const isRunning = (j.status === 'running' || j.status === 'pending');
+            const totalDone = j.success + j.failed;
+            const progress = (totalDone / j.total * 100) || 0;
+
+            return `
+                <tr class="hover:bg-slate-800/50 transition">
+                    <td class="py-4 px-3 text-slate-500 text-xs">#${j.id}</td>
+                    <td class="py-4 px-3 font-bold">${j.session_id}</td>
+                    <td class="py-4 px-3 w-1/3">
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] w-10">${totalDone}/${j.total}</span>
+                            <div class="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                <div class="h-full bg-blue-500 transition-all duration-1000 ease-out" style="width: ${progress}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-4 px-3 text-right">
+                        <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 ${isRunning ? 'animate-pulse text-blue-400' : 'text-slate-400'}">${j.status.toUpperCase()}</span>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        const anyActive = data.some(j => ['running','pending'].includes(j.status));
+        if(anyActive && !bulkJobInterval) bulkJobInterval = setInterval(loadBulkJobs, 2000);
+        else if(!anyActive) { clearInterval(bulkJobInterval); bulkJobInterval = null; }
+    } catch(e) {}
+}
 // --- INIT ---
 loadSessions(); // Memuat sesi pertama kali
