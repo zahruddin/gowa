@@ -81,7 +81,7 @@ go run cmd/app/main.go
 | :--- | :--- |
 | `list` | Menampilkan semua keyword katalog yang tersedia. |
 | `payment` | Menampilkan gambar QRIS dan cara bayar. |
-| `.admin` | Cek daftar admin yang sedang **Ready**. |
+| `admin` | Cek daftar admin yang sedang **Ready**. |
 | `#myid` | Cek nomor WhatsApp Anda untuk didaftarkan whitelist. |
 
 ---
