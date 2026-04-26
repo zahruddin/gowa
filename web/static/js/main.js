@@ -58,18 +58,22 @@ function updateDropdowns() {
   const katSelect = document.getElementById('katalog-session-select');
   const wlSelect = document.getElementById('whitelist-session-select');
   const bulkSelect = document.getElementById('bulk-session-select');
+  const apiSelect = document.getElementById('api-test-session');
   
   const currentKat = katSelect ? katSelect.value : null;
   const currentWl = wlSelect ? wlSelect.value : null;
   const currentBulk = bulkSelect ? bulkSelect.value : null;
+  const currentApi = apiSelect ? apiSelect.value : null;
 
   if (katSelect) katSelect.innerHTML = options;
   if (wlSelect) wlSelect.innerHTML = options;
   if (bulkSelect) bulkSelect.innerHTML = options;
+  if (apiSelect) apiSelect.innerHTML = options;
 
   if(currentKat && katSelect) katSelect.value = currentKat;
   if(currentWl && wlSelect) wlSelect.value = currentWl;
   if(currentBulk && bulkSelect) bulkSelect.value = currentBulk;
+  if(currentApi && apiSelect) apiSelect.value = currentApi;
 }
 
 // --- SESSIONS ---
@@ -529,6 +533,70 @@ async function uploadBulk() {
   } catch(e) {
     alert('Failed to upload: ' + e.message);
   }
+}
+
+// --- API TESTER ---
+async function testAPI() {
+    const sessionSelect = document.getElementById('api-test-session');
+    if (!sessionSelect) return;
+    const sessionId = sessionSelect.value;
+    const to = document.getElementById('api-test-to').value.trim();
+    const message = document.getElementById('api-test-message').value;
+    const resultDiv = document.getElementById('api-test-result');
+
+    if (!sessionId || !to || !message) {
+        alert("Please fill all fields: Session, Target Number, and Message.");
+        return;
+    }
+
+    // Get token for the selected session
+    const session = activeSessions.find(s => s.id === sessionId);
+    if (!session) {
+        alert("Session not found");
+        return;
+    }
+    const token = session.api_token;
+
+    resultDiv.classList.remove('hidden', 'bg-emerald-500/20', 'text-emerald-400', 'bg-red-500/20', 'text-red-400');
+    resultDiv.classList.add('bg-slate-800/50', 'text-slate-300');
+    resultDiv.innerHTML = "Sending...";
+
+    try {
+        const res = await fetch(API+'/api/send-text', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Token': token
+            },
+            body: JSON.stringify({
+                session_id: sessionId,
+                to: to,
+                message: message
+            })
+        });
+        
+        let data;
+        const contentType = res.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            data = await res.json();
+        } else {
+            data = await res.text();
+            data = { error: data };
+        }
+        
+        resultDiv.classList.remove('bg-slate-800/50', 'text-slate-300');
+        if (res.ok && data.status === 'success') {
+            resultDiv.classList.add('bg-emerald-500/20', 'text-emerald-400');
+            resultDiv.innerHTML = `Success: ${JSON.stringify(data, null, 2)}`;
+        } else {
+            resultDiv.classList.add('bg-red-500/20', 'text-red-400');
+            resultDiv.innerHTML = `Error (${res.status}): ${JSON.stringify(data, null, 2)}`;
+        }
+    } catch(e) {
+        resultDiv.classList.remove('bg-slate-800/50', 'text-slate-300');
+        resultDiv.classList.add('bg-red-500/20', 'text-red-400');
+        resultDiv.innerHTML = `Exception: ${e.message}`;
+    }
 }
 
 // --- INIT ---

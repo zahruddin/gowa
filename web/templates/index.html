@@ -32,6 +32,7 @@
             <button onclick="switchTab('katalog')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="katalog">📦 Katalog</button>
             <button onclick="switchTab('whitelist')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="whitelist">🛡️ Whitelist</button>
             <button onclick="switchTab('bulk')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="bulk">📤 Bulk Sender</button>
+            <button onclick="switchTab('api')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="api">🔌 API Docs</button>
         </div>
 
         <div id="tab-sessions">
@@ -83,6 +84,56 @@
         </div>
 
         <div id="tab-bulk" class="hidden"> ... </div>
+
+        <div id="tab-api" class="hidden">
+            <h2 class="text-lg font-semibold mb-4">API Documentation</h2>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 mb-6">
+                <h3 class="text-md font-bold mb-2 text-emerald-400">Send Text Message</h3>
+                <p class="text-sm text-slate-400 mb-4">Send a text message to a specific number using a connected session.</p>
+                
+                <div class="mb-4">
+                    <span class="bg-blue-600/20 text-blue-400 text-xs px-2 py-1 rounded font-mono font-bold border border-blue-600/30">POST</span>
+                    <code class="text-sm ml-2 font-mono text-slate-300">/api/send-text</code>
+                </div>
+
+                <h4 class="text-sm font-semibold mb-2 mt-6">Headers</h4>
+                <div class="bg-slate-950 rounded-lg p-3 border border-slate-800 mb-4 font-mono text-xs text-slate-300">
+                    <div><span class="text-purple-400">Content-Type</span>: application/json</div>
+                    <div><span class="text-purple-400">X-API-Token</span>: &lt;YOUR_SESSION_API_TOKEN&gt;</div>
+                </div>
+                <p class="text-xs text-slate-500 mb-6 italic">Note: You can find your X-API-Token by clicking "Detail" on your session card.</p>
+
+                <h4 class="text-sm font-semibold mb-2">Request Body (JSON)</h4>
+                <pre class="bg-slate-950 rounded-lg p-3 border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto">
+{
+  <span class="text-blue-400">"session_id"</span>: <span class="text-emerald-400">"store1"</span>,
+  <span class="text-blue-400">"to"</span>: <span class="text-emerald-400">"6281234567890"</span>,
+  <span class="text-blue-400">"message"</span>: <span class="text-emerald-400">"Hello from GOWA API!"</span>
+}
+                </pre>
+            </div>
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <h3 class="text-md font-bold mb-4">API Tester</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1">Session</label>
+                        <select id="api-test-session" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 mb-1">Target Number (with country code)</label>
+                        <input id="api-test-to" placeholder="e.g. 6281234567890" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="block text-xs text-slate-500 mb-1">Message</label>
+                    <textarea id="api-test-message" rows="3" placeholder="Test message..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"></textarea>
+                </div>
+                <button onclick="testAPI()" class="bg-emerald-600 hover:bg-emerald-700 px-6 py-2 rounded-lg text-sm font-semibold transition">Send Test Message</button>
+                <div id="api-test-result" class="mt-4 hidden p-3 rounded-lg text-xs font-mono"></div>
+            </div>
+        </div>
 
     </div>
 
