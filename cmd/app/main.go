@@ -61,6 +61,8 @@ func main() {
 	mux.HandleFunc("/api/katalog", apiHandler.ListKatalog)
 	mux.HandleFunc("/api/katalog/save", apiHandler.SaveKatalog)
 	mux.HandleFunc("/api/katalog/delete", apiHandler.DeleteKatalog)
+	mux.HandleFunc("/api/katalog/export", apiHandler.ExportKatalogCSV)
+	mux.HandleFunc("/api/katalog/import", apiHandler.ImportKatalogCSV)
 
 	// --- Whitelist ---
 	mux.HandleFunc("/api/whitelist", apiHandler.ListWhitelist)

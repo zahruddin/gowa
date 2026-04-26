@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"encoding/csv"
+    "net/http"
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/store"
@@ -215,4 +217,40 @@ func (m *Manager) Logout(id string) error {
 	delete(m.Clients, id)
 	delete(m.QRChannels, id)
 	return err
+}
+
+// DownloadKatalogHandler untuk mengekspor data katalog ke CSV
+func (m *Manager) DownloadKatalogHandler(w http.ResponseWriter, r *http.Request) {
+    sessionID := r.URL.Query().Get("session_id")
+    if sessionID == "" {
+        http.Error(w, "Session ID is required", http.StatusBadRequest)
+        return
+    }
+
+    // 1. Ambil data dari database
+    rows, err := database.DB.Query("SELECT keyword, details FROM katalog WHERE session_id = ?", sessionID)
+    if err != nil {
+        http.Error(w, "Database error", http.StatusInternalServerError)
+        return
+    }
+    defer rows.Close()
+
+    // 2. Set Header agar browser mengenali ini sebagai file download
+    w.Header().Set("Content-Type", "text/csv")
+    w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=katalog_%s.csv", sessionID))
+
+    // 3. Buat CSV writer
+    writer := csv.NewWriter(w)
+    defer writer.Flush()
+
+    // Tulis Header Kolom
+    writer.Write([]string{"Keyword", "Details"})
+
+    // Tulis Data
+    for rows.Next() {
+        var keyword, details string
+        if err := rows.Scan(&keyword, &details); err == nil {
+            writer.Write([]string{keyword, details})
+        }
+    }
 }

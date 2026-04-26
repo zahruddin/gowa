@@ -1,588 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GOWA - Enterprise WhatsApp Gateway</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-body{font-family:'Inter',sans-serif}
-.tab-btn.active{background:rgba(59,130,246,.15);color:#60a5fa;border-color:#3b82f6}
-.modal-bg{background:rgba(0,0,0,.6);backdrop-filter:blur(4px)}
-.fade-in{animation:fadeIn .2s ease}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GOWA - Enterprise WhatsApp Gateway</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body class="bg-slate-950 text-white min-h-screen">
 
-<div id="modal" class="fixed inset-0 modal-bg z-50 hidden items-center justify-center">
-<div class="bg-slate-800 rounded-2xl p-6 w-full max-w-md mx-4 fade-in border border-slate-700">
-<div id="modal-title" class="text-lg font-bold mb-4"></div>
-<div id="modal-body"></div>
-</div>
-</div>
-
-<div class="max-w-7xl mx-auto px-4 py-6">
-<header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-<div>
-<h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">GOWA Enterprise</h1>
-<p class="text-slate-500 text-sm">Multi-Session WhatsApp Gateway</p>
-</div>
-</header>
-
-<div class="flex gap-2 mb-6 border-b border-slate-800 pb-3 overflow-x-auto">
-<button onclick="switchTab('sessions')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition" data-tab="sessions">📱 Sessions</button>
-<button onclick="switchTab('katalog')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="katalog">📦 Katalog</button>
-<button onclick="switchTab('whitelist')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="whitelist">🛡️ Whitelist</button>
-<button onclick="switchTab('bulk')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="bulk">📤 Bulk Sender</button>
-</div>
-
-<!-- Tab: Sessions -->
-<div id="tab-sessions">
-<div class="flex justify-between items-center mb-4">
-<h2 class="text-lg font-semibold">WhatsApp Sessions</h2>
-<button onclick="showAddSession()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold transition">+ Add Session</button>
-</div>
-<div id="sessions-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-<p class="text-slate-500 col-span-full text-center py-12">Loading...</p>
-</div>
-</div>
-
-<div id="tab-katalog" class="hidden">
-<div class="flex flex-wrap justify-between items-center mb-4 gap-4">
-  <div class="flex items-center gap-3">
-    <h2 class="text-lg font-semibold">Auto-Response Katalog</h2>
-    <select id="katalog-session-select" onchange="loadKatalog()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500">
-      <option value="">-- Select Session --</option>
-    </select>
-  </div>
-  <button id="btn-add-katalog" onclick="showAddKatalog()" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-semibold transition opacity-50 cursor-not-allowed" disabled>+ Add Keyword</button>
-</div>
-<div id="katalog-list" class="space-y-2"></div>
-</div>
-
-<div id="tab-whitelist" class="hidden">
-  <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
-    <div class="flex items-center gap-3">
-      <h2 class="text-lg font-semibold">Admin Whitelist</h2>
-      <select id="whitelist-session-select" onchange="loadWhitelist()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500">
-        <option value="">-- Select Session --</option>
-      </select>
-    </div>
-    <button id="btn-add-whitelist" onclick="showAddWhitelist()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-semibold transition opacity-50 cursor-not-allowed" disabled>+ Add Number</button>
-  </div>
-  <div id="whitelist-list" class="space-y-2"></div>
-</div>
-
-<div id="tab-bulk" class="hidden">
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-    <div class="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h2 class="text-lg font-semibold mb-4">New Bulk Broadcast</h2>
-      <div class="space-y-4">
-        <div>
-          <label class="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Select Session</label>
-          <select id="bulk-session-select" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-            <option value="">-- Choose Account --</option>
-          </select>
+    <div id="modal" class="fixed inset-0 modal-bg z-50 hidden items-center justify-center">
+        <div class="bg-slate-800 rounded-2xl p-6 w-full max-w-md mx-4 fade-in border border-slate-700">
+            <div id="modal-title" class="text-lg font-bold mb-4"></div>
+            <div id="modal-body"></div>
         </div>
-        <div>
-          <label class="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Excel File (.xlsx)</label>
-          <input type="file" id="bulk-file" accept=".xlsx" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600/10 file:text-blue-400 hover:file:bg-blue-600/20 cursor-pointer">
-        </div>
-        <div>
-          <label class="block text-xs text-slate-500 mb-1.5 uppercase font-bold tracking-wider">Message</label>
-          <textarea id="bulk-message" rows="5" placeholder="Hello {nama}, this is a test..." class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"></textarea>
-        </div>
-        <button onclick="uploadBulk()" class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg text-sm font-bold transition shadow-lg shadow-blue-900/20">🚀 Send Broadcast</button>
-      </div>
     </div>
-    <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6">
-      <h2 class="text-lg font-semibold mb-4">Broadcast History</h2>
-      <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead>
-            <tr class="text-slate-500 border-b border-slate-800">
-              <th class="pb-3 font-medium">Job ID</th>
-              <th class="pb-3 font-medium">Session</th>
-              <th class="pb-3 font-medium">Progress</th>
-              <th class="pb-3 font-medium">Status</th>
-              <th class="pb-3 font-medium">Created</th>
-            </tr>
-          </thead>
-          <tbody id="bulk-jobs-list" class="divide-y divide-slate-800"></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <div id="bulk-jobs-list" class="space-y-2"></div>
-</div>
 
-<script>
-const API = '';
-let activeSessions = []; // Menyimpan daftar session untuk dropdown
-
-// --- TABS ---
-function switchTab(tab) {
-  document.querySelectorAll('[id^=tab-]').forEach(el => el.classList.add('hidden'));
-  document.getElementById('tab-'+tab).classList.remove('hidden');
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-    btn.classList.add('text-slate-400');
-  });
-  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
-  document.querySelector(`[data-tab="${tab}"]`).classList.remove('text-slate-400');
-  
-  if(tab==='sessions') loadSessions();
-  if(tab==='katalog') loadKatalog();
-  if(tab==='whitelist') loadWhitelist();
-  if(tab==='bulk') loadBulkJobs();
-}
-
-// --- MODAL ---
-function openModal(title, bodyHTML) {
-  document.getElementById('modal-title').textContent = title;
-  document.getElementById('modal-body').innerHTML = bodyHTML;
-  const m = document.getElementById('modal');
-  m.classList.remove('hidden');
-  m.classList.add('flex');
-}
-function closeModal() {
-  const m = document.getElementById('modal');
-  m.classList.add('hidden');
-  m.classList.remove('flex');
-}
-document.getElementById('modal').addEventListener('click', e => { if(e.target.id==='modal') closeModal(); });
-
-// --- UPDATE DROPDOWNS ---
-function updateDropdowns() {
-  const options = activeSessions.length > 0 
-    ? activeSessions.map(s => `<option value="${s.id}">${s.id} ${s.is_connected ? '🟢' : '🔴'}</option>`).join('')
-    : `<option value="">No Sessions Found</option>`;
-  
-  const katSelect = document.getElementById('katalog-session-select');
-  const wlSelect = document.getElementById('whitelist-session-select');
-  const bulkSelect = document.getElementById('bulk-session-select');
-  
-  const currentKat = katSelect.value;
-  const currentWl = wlSelect.value;
-  const currentBulk = bulkSelect.value;
-
-  katSelect.innerHTML = options;
-  wlSelect.innerHTML = options;
-  bulkSelect.innerHTML = options;
-
-  if(currentKat) katSelect.value = currentKat;
-  if(currentWl) wlSelect.value = currentWl;
-  if(currentBulk) bulkSelect.value = currentBulk;
-}
-
-// --- SESSIONS ---
-let qrPollers = {};
-
-async function loadSessions() {
-  const el = document.getElementById('sessions-list');
-  try {
-    const res = await fetch(API+'/api/sessions');
-    const data = await res.json();
-    
-    // Update global session state for dropdowns
-    activeSessions = data || [];
-    updateDropdowns();
-
-    if(!data || data.length===0) {
-      el.innerHTML = '<p class="text-slate-500 col-span-full text-center py-12">No sessions yet. Click "+ Add Session" to start.</p>';
-      return;
-    }
-
-    el.innerHTML = data.map(s => {
-      const connected = s.is_connected;
-      const statusColor = connected ? 'emerald' : 'red';
-      const statusText = connected ? 'Connected' : (s.status||'Offline');
-      const name = s.push_name || s.device_jid || s.id;
-      const token = s.api_token ? s.api_token.substring(0,16)+'...' : '-';
-      return `
-      <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 hover:border-slate-600 transition">
-        <div class="flex justify-between items-start mb-3">
-          <div class="w-10 h-10 bg-${statusColor}-500/20 rounded-lg flex items-center justify-center text-${statusColor}-400 text-lg">📱</div>
-          <span class="bg-${statusColor}-500/10 text-${statusColor}-400 text-xs px-2 py-1 rounded-full border border-${statusColor}-500/20">${statusText}</span>
-        </div>
-        <h3 class="font-bold text-base mb-0.5">${name}</h3>
-        <p class="text-slate-500 text-xs mb-3">ID: ${s.id}</p>
-        <div class="space-y-1.5 text-xs mb-4">
-          <div class="flex justify-between"><span class="text-slate-500">Token</span><code class="bg-slate-800 px-1.5 py-0.5 rounded text-blue-400">${token}</code></div>
-          <div class="flex justify-between"><span class="text-slate-500">Webhook</span><span class="text-slate-300">${s.webhook_url||'Not set'}</span></div>
-        </div>
-        <div class="flex gap-2">
-          ${connected
-            ? `<button onclick="disconnectSession('${s.id}')" class="flex-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 py-2 rounded-lg text-xs font-semibold transition">Disconnect</button>`
-            : `<button onclick="connectSession('${s.id}')" class="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 py-2 rounded-lg text-xs font-semibold transition">Connect</button>`
-          }
-          <button onclick="showSessionDetail('${s.id}','${s.api_token||''}','${s.webhook_url||''}')" class="flex-1 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-xs font-semibold transition">Detail</button>
-          <button onclick="deleteSession('${s.id}')" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-2 rounded-lg transition text-xs">🗑</button>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) {
-    el.innerHTML = '<p class="text-red-400 col-span-full text-center py-12">Error: '+e.message+'</p>';
-  }
-}
-
-// ... [Fungsi Create Session, QR Code, dan Delete Session sama persis seperti sebelumnya] ...
-function showAddSession() {
-  openModal('Add New Session', `
-    <div class="space-y-3">
-      <input id="new-session-id" placeholder="Session Name (e.g. store1)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-      <div id="create-btns" class="flex gap-2">
-        <button onclick="createSession()" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded-lg text-sm font-semibold transition">Create</button>
-        <button onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-sm font-semibold transition">Cancel</button>
-      </div>
-      <div id="qr-area" class="hidden mt-4 text-center">
-        <p class="text-sm text-emerald-400 mb-3 font-medium">📱 Scan QR with WhatsApp</p>
-        <div id="qr-target" class="inline-block bg-white p-3 rounded-xl"></div>
-        <p id="qr-status" class="text-xs text-slate-500 mt-3">Waiting for QR...</p>
-        <button onclick="closeModal();loadSessions();" class="mt-4 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm">Close</button>
-      </div>
-    </div>
-  `);
-}
-
-async function createSession() {
-  const id = document.getElementById('new-session-id').value.trim();
-  if(!id) return alert('Session name is required');
-  const res = await fetch(API+'/api/sessions/create', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-  const data = await res.json();
-  if(data.error) return alert(data.error);
-
-  document.getElementById('create-btns').classList.add('hidden');
-  document.getElementById('new-session-id').classList.add('hidden');
-  document.getElementById('qr-area').classList.remove('hidden');
-  pollQR(id);
-}
-
-function showQRModal(sessionID) {
-  openModal('QR Code: '+sessionID, `
-    <div class="text-center">
-      <p class="text-sm text-emerald-400 mb-3 font-medium">📱 Scan QR with WhatsApp</p>
-      <div id="qr-target" class="inline-block bg-white p-3 rounded-xl"></div>
-      <p id="qr-status" class="text-xs text-slate-500 mt-3">Waiting for QR...</p>
-      <button onclick="closeModal();loadSessions();" class="mt-4 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-sm">Close</button>
-    </div>
-  `);
-  pollQR(sessionID);
-}
-
-function pollQR(sessionID) {
-  if(qrPollers[sessionID]) clearInterval(qrPollers[sessionID]);
-  let lastQR = '';
-  qrPollers[sessionID] = setInterval(async () => {
-    try {
-      const res = await fetch(API+'/api/sessions/qr?id='+encodeURIComponent(sessionID));
-      const data = await res.json();
-      const target = document.getElementById('qr-target');
-      const status = document.getElementById('qr-status');
-      if(data.has_qr && target && data.qr !== lastQR) {
-        lastQR = data.qr;
-        target.innerHTML = '';
-        try {
-          new QRCode(target, { text: data.qr, width: 240, height: 240, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.L });
-        } catch(qrErr) {
-          const img = document.createElement('img');
-          img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data='+encodeURIComponent(data.qr);
-          target.appendChild(img);
-        }
-        if(status) status.textContent = 'QR ready — scan now!';
-      } else if(!data.has_qr && lastQR !== '') {
-        clearInterval(qrPollers[sessionID]);
-        delete qrPollers[sessionID];
-        closeModal();
-        loadSessions();
-      }
-    } catch(e) {}
-  }, 1500);
-}
-
-async function deleteSession(id) {
-  if(!confirm('Delete session "'+id+'"? This will logout from WhatsApp.')) return;
-  await fetch(API+'/api/sessions/delete', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-  loadSessions();
-}
-async function connectSession(id) {
-  await fetch(API+'/api/sessions/connect', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-  showQRModal(id);
-  setTimeout(() => { if(!qrPollers[id]) { closeModal(); loadSessions(); } }, 3000);
-}
-async function disconnectSession(id) {
-  await fetch(API+'/api/sessions/disconnect', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id})});
-  loadSessions();
-}
-
-function showSessionDetail(id, token, webhook) {
-  openModal('Session: '+id, `
-    <div class="space-y-3 text-sm">
-      <div><span class="text-slate-500">API Token:</span>
-        <code class="block bg-slate-900 p-2 rounded mt-1 text-blue-400 text-xs break-all select-all">${token}</code>
-      </div>
-      <div>
-        <label class="text-slate-500 block mb-1">Webhook URL:</label>
-        <input id="edit-webhook" value="${webhook}" placeholder="https://example.com/webhook" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-      </div>
-      <div class="flex gap-2">
-        <button onclick="saveWebhook('${id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded-lg font-semibold transition">Save Webhook</button>
-        <button onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg font-semibold transition">Close</button>
-      </div>
-    </div>
-  `);
-}
-
-async function saveWebhook(id) {
-  const url = document.getElementById('edit-webhook').value;
-  await fetch(API+'/api/sessions/webhook', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({id, webhook_url:url})});
-  closeModal();
-  loadSessions();
-}
-
-// --- KATALOG ---
-async function loadKatalog() {
-  const sessionID = document.getElementById('katalog-session-select').value;
-  const btnAdd = document.getElementById('btn-add-katalog');
-  const el = document.getElementById('katalog-list');
-
-  if(!sessionID) {
-    btnAdd.disabled = true;
-    btnAdd.classList.add('opacity-50', 'cursor-not-allowed');
-    el.innerHTML = '<p class="text-slate-500 text-center py-8">Please select a session first to view or add katalog.</p>';
-    return;
-  }
-
-  btnAdd.disabled = false;
-  btnAdd.classList.remove('opacity-50', 'cursor-not-allowed');
-
-  // PERBAIKAN: Kirim parameter session_id ke backend
-  const res = await fetch(API+'/api/katalog?session_id='+encodeURIComponent(sessionID));
-  const data = await res.json();
-  
-  if(!data||data.length===0) {
-    el.innerHTML = `<p class="text-slate-500 text-center py-8">No katalog entries for <b>${sessionID}</b>.</p>`;
-    return;
-  }
-  
-  el.innerHTML = data.map(k => `
-    <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 flex justify-between items-start gap-4">
-      <div class="flex-1 min-w-0">
-        <span class="font-semibold text-emerald-400 text-sm">${k.keyword}</span>
-        <p class="text-slate-400 text-xs mt-1 whitespace-pre-wrap break-words">${k.details}</p>
-      </div>
-      <div class="flex gap-2 shrink-0">
-        <button onclick="showEditKatalog('${k.keyword}',\`${k.details.replace(/`/g,"\\`").replace(/\\/g,"\\\\")}\`)" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded text-xs transition">Edit</button>
-        <button onclick="deleteKatalog('${k.keyword}')" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded text-xs transition">Delete</button>
-      </div>
-    </div>
-  `).join('');
-}
-
-function showAddKatalog() {
-  const sessionID = document.getElementById('katalog-session-select').value;
-  openModal('Add Katalog ('+sessionID+')', `
-    <div class="space-y-3">
-      <input id="kat-keyword" placeholder="Keyword" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-      <textarea id="kat-details" rows="4" placeholder="Response message..." class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500"></textarea>
-      <div class="flex gap-2">
-        <button onclick="saveKatalog()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-2 rounded-lg text-sm font-semibold transition">Save</button>
-        <button onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-sm font-semibold transition">Cancel</button>
-      </div>
-    </div>
-  `);
-}
-
-function showEditKatalog(keyword, details) {
-  const sessionID = document.getElementById('katalog-session-select').value;
-  openModal('Edit Katalog ('+sessionID+')', `
-    <div class="space-y-3">
-      <input id="kat-keyword" value="${keyword}" readonly class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-500">
-      <textarea id="kat-details" rows="4" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">${details}</textarea>
-      <div class="flex gap-2">
-        <button onclick="saveKatalog()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 py-2 rounded-lg text-sm font-semibold transition">Update</button>
-        <button onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-sm font-semibold transition">Cancel</button>
-      </div>
-    </div>
-  `);
-}
-
-async function saveKatalog() {
-  const sessionID = document.getElementById('katalog-session-select').value;
-  const keyword = document.getElementById('kat-keyword').value;
-  const details = document.getElementById('kat-details').value;
-  
-  // PERBAIKAN: Sertakan session_id di body POST
-  await fetch(API+'/api/katalog/save', {
-    method:'POST', 
-    headers:{'Content-Type':'application/json'}, 
-    body:JSON.stringify({session_id: sessionID, keyword, details})
-  });
-  closeModal();
-  loadKatalog();
-}
-
-async function deleteKatalog(keyword) {
-  const sessionID = document.getElementById('katalog-session-select').value;
-  if(!confirm(`Delete keyword "${keyword}" from session ${sessionID}?`)) return;
-  
-  await fetch(API+'/api/katalog/delete', {
-    method:'POST', 
-    headers:{'Content-Type':'application/json'}, 
-    body:JSON.stringify({session_id: sessionID, keyword})
-  });
-  loadKatalog();
-}
-
-// --- WHITELIST ---
-async function loadWhitelist() {
-  const sessionID = document.getElementById('whitelist-session-select').value;
-  const btnAdd = document.getElementById('btn-add-whitelist');
-  const el = document.getElementById('whitelist-list');
-
-  if(!sessionID) {
-    btnAdd.disabled = true;
-    btnAdd.classList.add('opacity-50', 'cursor-not-allowed');
-    el.innerHTML = '<p class="text-slate-500 text-center py-8">Please select a session first to view or add whitelist.</p>';
-    return;
-  }
-
-  btnAdd.disabled = false;
-  btnAdd.classList.remove('opacity-50', 'cursor-not-allowed');
-
-  // PERBAIKAN: Kirim parameter session_id ke backend
-  const res = await fetch(API+'/api/whitelist?session_id='+encodeURIComponent(sessionID));
-  const data = await res.json();
-  
-  if(!data||data.length===0) {
-    el.innerHTML = `<p class="text-slate-500 text-center py-8">No admin numbers for <b>${sessionID}</b>.</p>`;
-    return;
-  }
-  
-  el.innerHTML = data.map(w => `
-    <div class="bg-slate-900 border border-slate-800 rounded-lg p-4 flex justify-between items-center">
-      <div>
-        <span class="font-semibold text-purple-400 text-sm">${w.number}</span>
-        <span class="text-slate-500 text-xs ml-2">${w.name||''}</span>
-      </div>
-      <button onclick="deleteWhitelist('${w.number}')" class="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-3 py-1.5 rounded text-xs transition">Delete</button>
-    </div>
-  `).join('');
-}
-
-function showAddWhitelist() {
-  const sessionID = document.getElementById('whitelist-session-select').value;
-  openModal('Add Admin ('+sessionID+')', `
-    <div class="space-y-3">
-      <input id="wl-number" placeholder="Number (e.g. 6281234567890)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-      <input id="wl-name" placeholder="Name (optional)" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
-      <div class="flex gap-2">
-        <button onclick="saveWhitelist()" class="flex-1 bg-purple-600 hover:bg-purple-700 py-2 rounded-lg text-sm font-semibold transition">Save</button>
-        <button onclick="closeModal()" class="flex-1 bg-slate-700 hover:bg-slate-600 py-2 rounded-lg text-sm font-semibold transition">Cancel</button>
-      </div>
-    </div>
-  `);
-}
-
-async function saveWhitelist() {
-  const sessionID = document.getElementById('whitelist-session-select').value;
-  const number = document.getElementById('wl-number').value;
-  const name = document.getElementById('wl-name').value;
-  
-  // PERBAIKAN: Sertakan session_id di body POST
-  await fetch(API+'/api/whitelist/save', {
-    method:'POST', 
-    headers:{'Content-Type':'application/json'}, 
-    body:JSON.stringify({session_id: sessionID, number, name})
-  });
-  closeModal();
-  loadWhitelist();
-}
-
-async function deleteWhitelist(number) {
-  const sessionID = document.getElementById('whitelist-session-select').value;
-  if(!confirm(`Remove "${number}" from ${sessionID} whitelist?`)) return;
-  
-  await fetch(API+'/api/whitelist/delete', {
-    method:'POST', 
-    headers:{'Content-Type':'application/json'}, 
-    body:JSON.stringify({session_id: sessionID, number})
-  });
-  loadWhitelist();
-}
-
-// --- BULK SENDER ---
-async function loadBulkJobs() {
-  const sessionID = document.getElementById('bulk-session-select').value;
-  let url = API+'/api/bulk/jobs';
-  if(sessionID) url += '?session_id='+encodeURIComponent(sessionID);
-  
-  const res = await fetch(url);
-  const data = await res.json();
-  const el = document.getElementById('bulk-jobs-list');
-  
-  if(!data || data.length === 0) {
-    el.innerHTML = '<tr><td colspan="5" class="py-12 text-center text-slate-500 italic">No broadcast history yet.</td></tr>';
-    return;
-  }
-
-  el.innerHTML = data.map(j => {
-    const statusClass = j.status === 'completed' ? 'text-emerald-400' : (j.status === 'failed' ? 'text-red-400' : 'text-blue-400');
-    return `
-      <tr class="hover:bg-slate-800/50 transition">
-        <td class="py-4 text-slate-400 font-mono text-xs">#${j.id}</td>
-        <td class="py-4 font-medium">${j.session_id}</td>
-        <td class="py-4">
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-400">${j.success}/${j.total}</span>
-            <div class="flex-1 h-1.5 bg-slate-800 rounded-full w-24 overflow-hidden">
-              <div class="h-full bg-blue-500" style="width: ${(j.success/j.total*100)||0}%"></div>
+    <div class="max-w-7xl mx-auto px-4 py-6">
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-blue-400 to-emerald-400 bg-clip-text text-transparent">GOWA Enterprise</h1>
+                <p class="text-slate-500 text-sm">Multi-Session WhatsApp Gateway</p>
             </div>
+        </header>
+
+        <div class="flex gap-2 mb-6 border-b border-slate-800 pb-3 overflow-x-auto">
+            <button onclick="switchTab('sessions')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition" data-tab="sessions">📱 Sessions</button>
+            <button onclick="switchTab('katalog')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="katalog">📦 Katalog</button>
+            <button onclick="switchTab('whitelist')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="whitelist">🛡️ Whitelist</button>
+            <button onclick="switchTab('bulk')" class="tab-btn px-4 py-2 rounded-lg text-sm font-medium border border-transparent transition text-slate-400 hover:text-white" data-tab="bulk">📤 Bulk Sender</button>
+        </div>
+
+        <div id="tab-sessions">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold">WhatsApp Sessions</h2>
+                <button onclick="showAddSession()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg text-sm font-semibold transition">+ Add Session</button>
+            </div>
+            <div id="sessions-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <p class="text-slate-500 col-span-full text-center py-12">Loading...</p>
+            </div>
+        </div>
+
+        <div id="tab-katalog" class="hidden">
+            <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-semibold">Auto-Response Katalog</h2>
+                    <select id="katalog-session-select" onchange="loadKatalog()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-emerald-500">
+                        <option value="">-- Select Session --</option>
+                    </select>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <a id="btn-export-katalog" href="#" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-lg text-sm font-semibold transition opacity-50 cursor-not-allowed pointer-events-none">
+                        📤 Export CSV
+                    </a>
+                    
+                    <label class="bg-indigo-600 hover:bg-indigo-700 cursor-pointer px-4 py-2 rounded-lg text-sm font-semibold transition">
+                        📥 Import CSV
+                        <input type="file" id="import-katalog-file" accept=".csv" class="hidden" onchange="handleImportCSV(event)">
+                    </label>
+
+                    <button id="btn-add-katalog" onclick="showAddKatalog()" class="bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg text-sm font-semibold transition opacity-50 cursor-not-allowed" disabled>+ Add Keyword</button>
+                </div>
+            </div>
+            <div id="katalog-list" class="space-y-2"></div>
+        </div>
+
+        <div id="tab-whitelist" class="hidden">
+          <div class="flex flex-wrap justify-between items-center mb-4 gap-4">
+            <div class="flex items-center gap-3">
+              <h2 class="text-lg font-semibold">Admin Whitelist</h2>
+              <select id="whitelist-session-select" onchange="loadWhitelist()" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-purple-500">
+                <option value="">-- Select Session --</option>
+              </select>
+            </div>
+            <button id="btn-add-whitelist" onclick="showAddWhitelist()" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg text-sm font-semibold transition opacity-50 cursor-not-allowed" disabled>+ Add Number</button>
           </div>
-        </td>
-        <td class="py-4"><span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 ${statusClass}">${j.status}</span></td>
-        <td class="py-4 text-slate-500 text-xs">${new Date(j.created_at).toLocaleString()}</td>
-      </tr>
-    `;
-  }).join('');
-}
+          <div id="whitelist-list" class="space-y-2"></div>
+        </div>
 
-async function uploadBulk() {
-  const sessionID = document.getElementById('bulk-session-select').value;
-  const fileInput = document.getElementById('bulk-file');
-  const message = document.getElementById('bulk-message').value;
+        <div id="tab-bulk" class="hidden"> ... </div>
 
-  if(!sessionID || !fileInput.files[0] || !message) {
-    return alert('Please fill all fields: Session, Excel File, and Message.');
-  }
+    </div>
 
-  const formData = new FormData();
-  formData.append('session_id', sessionID);
-  formData.append('file', fileInput.files[0]);
-  formData.append('message', message);
-
-  try {
-    const res = await fetch(API+'/api/bulk/upload', {
-      method: 'POST',
-      body: formData
-    });
-    const data = await res.json();
-    if(data.status === 'success') {
-      alert('Broadcast job created!');
-      loadBulkJobs();
-    } else {
-      alert('Error: ' + data.error);
-    }
-  } catch(e) {
-    alert('Failed to upload: ' + e.message);
-  }
-}
-
-// --- INIT ---
-loadSessions(); // Memuat sesi pertama kali
-</script>
+    <script src="/static/js/main.js"></script>
 </body>
 </html>
