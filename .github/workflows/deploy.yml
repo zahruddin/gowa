@@ -15,25 +15,21 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4 # Update ke v4
+        uses: actions/checkout@v4 # Naik dari v3 ke v4
 
       - name: Login to GHCR
-        uses: docker/login-action@v3 # Update ke v3
+        uses: docker/login-action@v3 # Naik dari v2 ke v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push
-        uses: docker/build-push-action@v6 # Update ke v6
+        uses: docker/build-push-action@v6 # Naik dari v4 ke v6
         with:
           context: .
           push: true
-          # Memastikan tag selalu lowercase
           tags: ghcr.io/${{ github.repository_owner }}/gowa-app:latest
-          # Cache agar build berikutnya lebih cepat
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest

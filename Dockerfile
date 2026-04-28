@@ -1,20 +1,14 @@
-# Stage 1: Build (Kompilasi)
-FROM golang:1.21-alpine AS builder
+# Gunakan versi yang sesuai dengan go.mod kamu (misal 1.22 atau 1.23)
+FROM golang:1.23-alpine AS builder
 
-# 1. PASANG DEPENDENSI UNTUK SQLITE (CGO)
+# PASANG git, gcc, DAN musl-dev (Wajib agar go mod download lancar)
 RUN apk add --no-cache gcc musl-dev git
 
 WORKDIR /app
-
-# Copy dependency files
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
-
-# 2. AKTIFKAN CGO_ENABLED=1
-# Ini wajib agar driver SQLite (mattn/go-sqlite3) bisa di-compile
 RUN CGO_ENABLED=1 GOOS=linux go build -o app-exe ./cmd/app/main.go
 
 # Stage 2: Run (Lingkungan Eksekusi)
