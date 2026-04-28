@@ -2,7 +2,7 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ main ] # Eksekusi saat push ke branch main
+    branches: [ fullversion ] # Eksekusi saat push ke branch main
 
 jobs:
   build-and-push:
