@@ -2,7 +2,7 @@
 FROM golang:1.21-alpine AS builder
 
 # 1. PASANG DEPENDENSI UNTUK SQLITE (CGO)
-RUN apk add --no-cache gcc musl-dev
+RUN apk add --no-cache gcc musl-dev git
 
 WORKDIR /app
 

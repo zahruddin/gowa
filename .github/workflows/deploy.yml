@@ -2,42 +2,49 @@ name: Build and Deploy
 
 on:
   push:
-    branches: [ fullversion ] # Eksekusi saat push ke branch main
+    branches: 
+      - main
+      - fullversion # Agar branch ini juga memicu build
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # Update ke v4
 
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v2
+      - name: Login to GHCR
+        uses: docker/login-action@v3 # Update ke v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and Push
-        uses: docker/build-push-action@v4
+        uses: docker/build-push-action@v6 # Update ke v6
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          # Memastikan tag selalu lowercase
+          tags: ghcr.io/${{ github.repository_owner }}/gowa-app:latest
+          # Cache agar build berikutnya lebih cepat
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     runs-on: ubuntu-latest
     needs: build-and-push
     steps:
-      - name: Deploy to Server via SSH
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            cd /path/to/your/project # GANTI KE PATH DI SERVER ANDA
-            docker compose pull
-            docker compose up -d
-            docker image prune -f
+            cd ~/gowa
+            ./deploy.sh
