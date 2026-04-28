@@ -1,6 +1,6 @@
 # Stage 1: Build (Kompilasi)
-# PENTING: Jika di file go.mod kamu tertulis 'go 1.23', ganti angka 1.22 di bawah ini menjadi 1.23
-FROM golang:1.22-alpine AS builder
+# Kita gunakan 'golang:alpine' agar selalu menggunakan Golang versi terbaru (menghindari error versi go.mod)
+FROM golang:alpine AS builder
 
 # 1. PASANG DEPENDENSI WAJIB
 # git & ca-certificates: untuk mendownload library dari GitHub
