@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  wa-bot:
+    build: .
+    container_name: wa-bot-container
+    restart: always
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/root/data
+    env_file:
+      - .env

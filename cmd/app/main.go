@@ -86,6 +86,9 @@ func main() {
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "web/templates/index.html")
 	})
+	mux.HandleFunc("/about", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "web/templates/about.html")
+	})
 
 	// Static Assets
 	fs := http.FileServer(http.Dir("web/static"))
